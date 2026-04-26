@@ -1,0 +1,973 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Cinzel:wght@400;600;700&family=Crimson+Pro:ital,wght@0,300;0,400;0,600;1,400&family=Special+Elite&display=swap');
+*{box-sizing:border-box;margin:0;padding:0;}
+body{font-family:'Crimson Pro',Georgia,serif;min-height:100vh;overflow-x:hidden;transition:background 0.5s;}
+.screen{display:none;min-height:100vh;flex-direction:column;}
+.screen.active{display:flex;}
+:root{--gold:#C9A84C;--gold-l:#E8C96B;--gold-d:#8B6914;--silver:#C0C0C0;--silver-l:#E8E8F0;--silver-d:#8A8A9A;--beige:#F5F0E8;--beige-d:#E8E0D0;--parch:#FAF6EE;--ink:#1A1610;--ink-s:#3D3428;--ink-m:#6B5F4E;}
+
+/* ── NOTIFICATION SYSTEM ── */
+#notif-container{position:fixed;top:14px;right:14px;z-index:600;display:flex;flex-direction:column;gap:8px;pointer-events:none;}
+.notif{
+  background:var(--parch);border:1.5px solid var(--gold-d);border-radius:12px;
+  padding:10px 14px;max-width:260px;display:flex;align-items:flex-start;gap:10px;
+  pointer-events:auto;box-shadow:0 4px 20px rgba(0,0,0,0.25);
+  animation:notifSlide 0.4s cubic-bezier(0.34,1.56,0.64,1);
+}
+.notif.hide{animation:notifFade 0.4s ease forwards;}
+@keyframes notifSlide{from{transform:translateX(120%);opacity:0;}to{transform:translateX(0);opacity:1;}}
+@keyframes notifFade{from{opacity:1;transform:translateX(0);}to{opacity:0;transform:translateX(120%);}}
+.notif-icon{font-size:20px;flex-shrink:0;}
+.notif-body{flex:1;}
+.notif-title{font-family:'Cinzel',serif;font-size:10px;letter-spacing:1px;font-weight:600;margin-bottom:2px;}
+.notif-msg{font-size:11px;color:var(--ink-m);line-height:1.5;}
+.notif-close{background:none;border:none;cursor:pointer;font-size:14px;color:var(--ink-m);padding:0;line-height:1;flex-shrink:0;}
+
+/* ── SORTING HAT ── */
+#hat-overlay{display:none;position:fixed;inset:0;z-index:500;background:rgba(5,3,1,0.97);align-items:center;justify-content:center;flex-direction:column;padding:20px;}
+#hat-overlay.show{display:flex;}
+@keyframes hatWobble{0%,100%{transform:rotate(-3deg)translateY(0);}25%{transform:rotate(4deg)translateY(-6px);}50%{transform:rotate(-2deg)translateY(-2px);}75%{transform:rotate(3deg)translateY(-8px);}}
+.hat-anim{animation:hatWobble 0.9s ease-in-out infinite;}
+.speech-bubble{background:var(--parch);border:1.5px solid var(--gold-d);border-radius:16px;padding:16px 20px;max-width:290px;font-family:'Crimson Pro',serif;font-size:15px;font-style:italic;color:var(--ink-s);line-height:1.7;text-align:center;position:relative;margin-top:14px;min-height:56px;transition:border-color 0.4s;}
+.speech-bubble::before{content:'';position:absolute;top:-12px;left:50%;transform:translateX(-50%);border:6px solid transparent;border-bottom-color:var(--gold-d);}
+.speech-bubble::after{content:'';position:absolute;top:-10px;left:50%;transform:translateX(-50%);border:6px solid transparent;border-bottom-color:var(--parch);}
+.hat-house-reveal{margin-top:18px;text-align:center;opacity:0;transition:opacity 0.8s;}
+.hat-house-reveal.show{opacity:1;}
+.hat-house-name{font-family:'Cinzel',serif;font-size:30px;font-weight:700;letter-spacing:3px;animation:houseReveal 0.6s cubic-bezier(0.34,1.56,0.64,1);}
+@keyframes houseReveal{from{transform:scale(0.5);opacity:0;}to{transform:scale(1);opacity:1;}}
+.hat-continue{margin-top:18px;font-family:'Cinzel',serif;font-size:12px;font-weight:700;letter-spacing:2px;border:none;border-radius:10px;padding:12px 28px;cursor:pointer;display:none;animation:pulseBtn 1.5s ease-in-out infinite;}
+.hat-continue.show{display:block;}
+@keyframes pulseBtn{0%,100%{box-shadow:0 0 0 0 rgba(201,168,76,0.4);}50%{box-shadow:0 0 0 8px rgba(201,168,76,0);}}
+
+/* ── SPELL OVERLAY ── */
+#spell-overlay{display:none;position:fixed;inset:0;z-index:300;pointer-events:none;overflow:hidden;}
+#spell-overlay.show{display:block;}
+.snitch{position:absolute;animation:snitchFly 2.4s ease-in-out forwards;}
+.wand-spark{position:absolute;width:7px;height:7px;border-radius:50%;animation:sparkBurst 1.6s ease-out forwards;}
+.spell-word{position:absolute;font-family:'Cinzel',serif;font-size:20px;font-weight:700;text-shadow:0 0 14px rgba(201,168,76,0.8);animation:spellFade 2.2s ease-out forwards;pointer-events:none;}
+@keyframes snitchFly{0%{transform:translate(0,0)scale(0.4);opacity:0;}20%{opacity:1;transform:translate(var(--dx1),var(--dy1))scale(1.3);}60%{transform:translate(var(--dx2),var(--dy2))scale(1)rotate(720deg);}100%{transform:translate(var(--dx3),var(--dy3))scale(0.2);opacity:0;}}
+@keyframes sparkBurst{0%{transform:translate(0,0)scale(1);opacity:1;}100%{transform:translate(var(--sx),var(--sy))scale(0);opacity:0;}}
+@keyframes spellFade{0%{opacity:0;transform:translateY(12px)scale(0.7);}30%{opacity:1;transform:translateY(0)scale(1.1);}70%{opacity:1;}100%{opacity:0;transform:translateY(-36px);}}
+
+/* ── SHARED ── */
+.hdr{padding:11px 18px;display:flex;align-items:center;justify-content:space-between;transition:all 0.5s;}
+.hdr-logo{font-family:'Cinzel',serif;font-size:13px;letter-spacing:2px;font-weight:600;}
+.hdr-sub{font-size:10px;letter-spacing:1px;margin-top:1px;}
+.back-btn{background:none;border:none;font-family:'Cinzel',serif;font-size:10px;letter-spacing:1px;cursor:pointer;padding:4px 6px;display:flex;align-items:center;gap:5px;transition:color 0.2s;}
+.bottom-nav{display:flex;padding:8px 0 14px;transition:all 0.5s;}
+.nav-btn{flex:1;display:flex;flex-direction:column;align-items:center;gap:3px;background:none;border:none;cursor:pointer;padding:4px;transition:all 0.2s;position:relative;}
+.nav-icon{font-size:18px;}
+.nav-label{font-family:'Cinzel',serif;font-size:8px;letter-spacing:1px;}
+.nav-badge{position:absolute;top:0;right:14px;background:#E74C3C;color:#fff;font-size:9px;font-weight:700;border-radius:10px;padding:1px 5px;font-family:'Cinzel',serif;min-width:16px;text-align:center;}
+
+/* ── SIGN IN ── */
+#signin{background:linear-gradient(160deg,#0A0705 0%,#160F08 50%,#0A0705 100%);justify-content:flex-start;align-items:center;overflow-y:auto;}
+.signin-wrap{width:100%;max-width:380px;padding:28px 22px 32px;display:flex;flex-direction:column;align-items:center;}
+.si-crest{font-size:58px;animation:floatBob 3s ease-in-out infinite;}
+@keyframes floatBob{0%,100%{transform:translateY(0);}50%{transform:translateY(-10px);}}
+.si-title{font-family:'Cinzel',serif;font-size:22px;color:var(--gold);font-weight:700;letter-spacing:3px;text-align:center;margin:8px 0 2px;}
+.si-sub{font-size:13px;color:var(--silver-d);font-style:italic;text-align:center;margin-bottom:24px;}
+.field-label{font-family:'Cinzel',serif;font-size:9px;letter-spacing:2px;color:var(--silver-d);margin-bottom:5px;align-self:flex-start;}
+.field-input{width:100%;background:rgba(255,255,255,0.05);border:1px solid #3A3020;border-radius:10px;padding:12px 15px;font-family:'Crimson Pro',serif;font-size:15px;color:var(--silver-l);outline:none;transition:border 0.2s;margin-bottom:12px;}
+.field-input:focus{border-color:var(--gold-d);}
+.field-input::placeholder{color:#4A4030;}
+.pass-wrap{width:100%;position:relative;margin-bottom:12px;}
+.pass-wrap .field-input{margin-bottom:0;padding-right:44px;}
+.eye-btn{position:absolute;right:14px;top:50%;transform:translateY(-50%);background:none;border:none;cursor:pointer;font-size:18px;color:#5A5040;transition:color 0.2s;padding:0;}
+.eye-btn:hover{color:var(--gold-d);}
+.house-section-label{font-family:'Cinzel',serif;font-size:9px;letter-spacing:2px;color:var(--silver-d);align-self:flex-start;margin-bottom:8px;}
+.house-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;width:100%;margin-bottom:20px;}
+.hchip{border-radius:12px;padding:13px 8px;text-align:center;cursor:pointer;transition:all 0.3s;border:1.5px solid #3A3020;background:rgba(255,255,255,0.03);position:relative;overflow:hidden;}
+.hchip-bg{position:absolute;inset:0;opacity:0;transition:opacity 0.3s;}
+.hchip.sel .hchip-bg{opacity:1;}
+.hchip-icon{font-size:24px;margin-bottom:4px;display:block;position:relative;z-index:1;}
+.hchip-name{font-family:'Cinzel',serif;font-size:9px;letter-spacing:1px;color:var(--silver-d);transition:color 0.3s;position:relative;z-index:1;}
+.hchip-dots{display:flex;gap:4px;justify-content:center;margin-top:6px;position:relative;z-index:1;}
+.hdot{width:9px;height:9px;border-radius:50%;}
+.btn-signin{width:100%;background:var(--gold);color:var(--ink);font-family:'Cinzel',serif;font-size:14px;font-weight:700;letter-spacing:2px;border:none;border-radius:12px;padding:14px;cursor:pointer;transition:all 0.2s;box-shadow:0 4px 24px rgba(201,168,76,0.3);margin-bottom:16px;}
+.btn-signin:hover{background:var(--gold-l);transform:translateY(-1px);}
+.si-quote{font-size:12px;color:#3A3020;font-style:italic;text-align:center;line-height:1.7;padding:0 6px;min-height:44px;transition:opacity 0.6s;}
+
+/* ── DASHBOARD ── */
+.dash-body{padding:18px 16px;flex:1;overflow-y:auto;}
+.user-hero{border-radius:16px;padding:20px;margin-bottom:14px;position:relative;overflow:hidden;transition:all 0.5s;}
+.hero-bg-icon{position:absolute;right:14px;top:10px;font-size:44px;opacity:0.1;}
+.hero-greeting{font-family:'Cinzel',serif;font-size:9px;letter-spacing:2px;opacity:0.65;margin-bottom:2px;}
+.hero-name{font-family:'Cinzel',serif;font-size:21px;font-weight:700;margin-bottom:10px;}
+.level-badge{display:inline-flex;align-items:center;gap:8px;border-radius:24px;padding:5px 13px;margin-bottom:10px;transition:all 0.5s;}
+.level-label{font-family:'Cinzel',serif;font-size:11px;letter-spacing:1px;}
+.xp-row{display:flex;justify-content:space-between;font-size:11px;opacity:0.65;margin-bottom:4px;}
+.xp-bar-bg{border-radius:5px;height:7px;overflow:hidden;transition:all 0.5s;}
+.xp-bar-fill{height:100%;border-radius:5px;transition:width 1s ease,background 0.5s;}
+.quote-card{border-radius:12px;padding:13px 15px;border:1px solid;border-left:3px solid;margin-bottom:14px;transition:all 0.5s;}
+.quote-text{font-size:13px;font-style:italic;line-height:1.65;margin-bottom:5px;}
+.quote-ref{font-family:'Cinzel',serif;font-size:9px;letter-spacing:1.5px;}
+.stats-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:14px;}
+.stat-card{border-radius:12px;padding:14px;border:1px solid;text-align:center;transition:all 0.5s;}
+.stat-icon{font-size:21px;margin-bottom:3px;}
+.stat-val{font-family:'Cinzel',serif;font-size:19px;font-weight:700;}
+.stat-lbl{font-size:11px;margin-top:2px;opacity:0.7;}
+
+/* ── WEEKLY SCROLL (updated) ── */
+.week-card{border-radius:12px;padding:14px;border:1px solid;margin-bottom:14px;transition:all 0.5s;}
+.week-title{font-family:'Cinzel',serif;font-size:9px;letter-spacing:2px;opacity:0.65;margin-bottom:10px;}
+.week-rows{display:flex;flex-direction:column;gap:6px;}
+.week-row{display:flex;align-items:center;gap:8px;}
+.wdot{width:28px;height:28px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:9px;font-weight:700;font-family:'Cinzel',serif;flex-shrink:0;}
+.week-mission{flex:1;font-size:11px;font-style:italic;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.week-xp{font-family:'Cinzel',serif;font-size:10px;font-weight:600;flex-shrink:0;}
+
+/* ── TOM RIDDLE CHALLENGE ── */
+.challenge-card{border-radius:12px;padding:14px 16px;margin-bottom:14px;border:1.5px solid;position:relative;overflow:hidden;cursor:pointer;transition:all 0.3s;}
+.challenge-card::before{content:'';position:absolute;inset:0;opacity:0.06;background:repeating-linear-gradient(0deg,transparent,transparent 18px,rgba(0,0,0,0.3) 18px,rgba(0,0,0,0.3) 19px);}
+.challenge-skull{position:absolute;right:12px;top:12px;font-size:28px;opacity:0.2;animation:skullPulse 3s ease-in-out infinite;}
+@keyframes skullPulse{0%,100%{opacity:0.2;transform:scale(1);}50%{opacity:0.35;transform:scale(1.05);}}
+.challenge-label{font-family:'Cinzel',serif;font-size:9px;letter-spacing:2px;margin-bottom:5px;}
+.challenge-title{font-family:'Cinzel',serif;font-size:14px;font-weight:700;margin-bottom:4px;}
+.challenge-desc{font-size:12px;font-style:italic;line-height:1.5;margin-bottom:8px;opacity:0.8;}
+.challenge-meta{display:flex;gap:10px;align-items:center;}
+.challenge-xp{font-family:'Cinzel',serif;font-size:10px;padding:2px 10px;border-radius:8px;font-weight:700;}
+.challenge-timer{font-family:'Cinzel',serif;font-size:10px;opacity:0.65;}
+
+/* ── LEADERBOARD ── */
+.lb-card{border-radius:12px;padding:14px;border:1px solid;margin-bottom:14px;transition:all 0.5s;}
+.lb-title{font-family:'Cinzel',serif;font-size:9px;letter-spacing:2px;opacity:0.65;margin-bottom:10px;}
+.lb-row{display:flex;align-items:center;gap:10px;padding:7px 0;border-bottom:1px solid;}
+.lb-row:last-child{border-bottom:none;}
+.lb-rank{font-family:'Cinzel',serif;font-size:12px;font-weight:700;width:22px;text-align:center;}
+.lb-avatar{width:30px;height:30px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:15px;flex-shrink:0;}
+.lb-info{flex:1;}
+.lb-name{font-family:'Cinzel',serif;font-size:11px;font-weight:600;}
+.lb-pts{font-size:11px;opacity:0.65;}
+.lb-badge{font-family:'Cinzel',serif;font-size:9px;padding:2px 8px;border-radius:8px;font-weight:600;}
+.btn-start{width:100%;font-family:'Cinzel',serif;font-size:14px;font-weight:700;letter-spacing:2px;border:none;border-radius:12px;padding:15px;cursor:pointer;transition:all 0.3s;margin-bottom:2px;}
+.btn-start:hover{transform:translateY(-1px);}
+
+/* ── MISSIONS ── */
+.mis-body{padding:18px 16px;flex:1;overflow-y:auto;}
+.mission-card{border-radius:12px;padding:15px;border:1px solid;margin-bottom:10px;display:flex;align-items:center;gap:12px;cursor:pointer;transition:all 0.2s;position:relative;overflow:hidden;}
+.mc-stripe{position:absolute;left:0;top:0;bottom:0;width:3px;border-radius:12px 0 0 12px;}
+.mc-icon{width:42px;height:42px;border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:20px;flex-shrink:0;}
+.mc-name{font-family:'Cinzel',serif;font-size:13px;font-weight:600;margin-bottom:3px;}
+.mc-meta{display:flex;gap:8px;align-items:center;}
+.mc-time{font-size:12px;opacity:0.7;}
+.mc-xp{font-size:10px;padding:2px 8px;border-radius:8px;font-weight:600;font-family:'Cinzel',serif;}
+.btn-session{width:100%;font-family:'Cinzel',serif;font-size:13px;font-weight:700;letter-spacing:2px;border:1.5px solid;border-radius:12px;padding:14px;cursor:pointer;margin-top:4px;transition:all 0.2s;background:transparent;}
+.btn-session:disabled{opacity:0.35;cursor:not-allowed;}
+
+/* ── TIMER ── */
+.timer-body{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:24px;text-align:center;}
+.t-lbl{font-family:'Cinzel',serif;font-size:9px;letter-spacing:3px;opacity:0.5;margin-bottom:5px;}
+.t-name{font-family:'Cinzel',serif;font-size:18px;font-weight:600;margin-bottom:26px;}
+.ring-wrap{position:relative;display:inline-block;margin-bottom:26px;}
+.t-digits{font-family:'Cinzel',serif;font-size:42px;font-weight:700;letter-spacing:2px;line-height:1;display:block;}
+.t-rem{font-size:10px;letter-spacing:2px;opacity:0.5;margin-top:3px;}
+.t-controls{display:flex;gap:12px;width:100%;}
+.btn-pause{flex:1;background:transparent;font-family:'Cinzel',serif;font-size:12px;letter-spacing:1px;border:1px solid;border-radius:10px;padding:13px;cursor:pointer;transition:all 0.2s;}
+.btn-complete{flex:2;font-family:'Cinzel',serif;font-size:12px;font-weight:700;letter-spacing:1.5px;border:none;border-radius:10px;padding:13px;cursor:pointer;transition:all 0.2s;}
+.t-tip{margin-top:20px;font-size:13px;font-style:italic;text-align:center;max-width:260px;line-height:1.65;opacity:0.5;}
+
+/* ── TOM RIDDLE CHATBOT ── */
+#chatbot-screen{position:relative;}
+.diary-bg{
+  position:absolute;inset:0;z-index:0;
+  background:
+    repeating-linear-gradient(0deg,transparent,transparent 28px,rgba(0,0,0,0.07) 28px,rgba(0,0,0,0.07) 29px);
+  pointer-events:none;
+}
+.diary-margin{position:absolute;left:52px;top:0;bottom:0;width:1.5px;background:rgba(180,50,50,0.2);z-index:0;pointer-events:none;}
+.chat-content{position:relative;z-index:1;display:flex;flex-direction:column;flex:1;min-height:0;}
+.diary-header{text-align:center;padding:10px 16px 6px;border-bottom:1px solid;position:relative;z-index:1;}
+.diary-header-title{font-family:'Special Elite',serif;font-size:15px;letter-spacing:1px;}
+.diary-header-sub{font-size:11px;font-style:italic;opacity:0.6;margin-top:2px;}
+.chat-body{flex:1;overflow-y:auto;padding:14px 14px 4px;display:flex;flex-direction:column;gap:10px;min-height:180px;position:relative;z-index:1;}
+.chat-msg{display:flex;gap:9px;align-items:flex-end;}
+.chat-msg.user{flex-direction:row-reverse;}
+.chat-av{width:32px;height:32px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:15px;flex-shrink:0;font-family:'Special Elite',serif;}
+.chat-bubble{max-width:74%;padding:9px 13px;border-radius:14px;font-size:13px;line-height:1.6;}
+.chat-bubble.bot{border-bottom-left-radius:4px;font-family:'Special Elite',serif;}
+.chat-bubble.usr{border-bottom-right-radius:4px;}
+.chat-sender{font-family:'Cinzel',serif;font-size:9px;letter-spacing:1px;margin-bottom:4px;}
+.chat-sugs{display:flex;flex-wrap:wrap;gap:6px;padding:6px 14px 8px;position:relative;z-index:1;}
+.sug-btn{border-radius:18px;padding:5px 11px;font-family:'Special Elite',serif;font-size:10px;cursor:pointer;transition:all 0.2s;border:1px solid;}
+.chat-inp-row{padding:10px 14px 14px;display:flex;gap:9px;flex-shrink:0;position:relative;z-index:1;}
+.chat-input{flex:1;border-radius:20px;padding:10px 14px;font-family:'Special Elite',serif;font-size:13px;outline:none;transition:border 0.2s;border:1px solid;}
+.chat-input::placeholder{font-family:'Crimson Pro',serif;font-style:italic;}
+.chat-send{width:38px;height:38px;background:var(--gold);border:none;border-radius:50%;cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:15px;flex-shrink:0;}
+.chat-send:hover{background:var(--gold-l);}
+.tydot{display:inline-block;animation:tyB 1.2s infinite;font-size:20px;line-height:1;font-family:'Special Elite',serif;}
+.tydot:nth-child(2){animation-delay:0.2s;}
+.tydot:nth-child(3){animation-delay:0.4s;}
+@keyframes tyB{0%,80%,100%{transform:translateY(0);}40%{transform:translateY(-5px);}}
+/* ink appear effect */
+@keyframes inkWrite{from{opacity:0;filter:blur(2px);}to{opacity:1;filter:blur(0);}}
+.ink-appear{animation:inkWrite 0.6s ease forwards;}
+
+/* ── RESULT POPUP ── */
+.overlay{display:none;position:fixed;inset:0;background:rgba(10,7,4,0.9);z-index:200;align-items:center;justify-content:center;padding:20px;}
+.overlay.show{display:flex;}
+.result-card{background:var(--parch);border-radius:20px;padding:26px 22px;border:1.5px solid var(--gold-d);width:100%;max-width:340px;text-align:center;animation:popIn 0.4s cubic-bezier(0.34,1.56,0.64,1);}
+@keyframes popIn{from{transform:scale(0.65);opacity:0;}to{transform:scale(1);opacity:1;}}
+.rc-crest{font-size:50px;margin-bottom:6px;animation:floatBob 2s ease-in-out infinite;}
+.rc-title{font-family:'Cinzel',serif;font-size:21px;font-weight:700;color:var(--ink);margin-bottom:3px;}
+.rc-sub{font-size:13px;color:var(--ink-m);font-style:italic;margin-bottom:18px;}
+.rc-rewards{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:14px;}
+.rc-chip{background:var(--beige);border-radius:10px;padding:10px 6px;border:1px solid var(--beige-d);}
+.rc-chip-icon{font-size:19px;margin-bottom:3px;}
+.rc-chip-val{font-family:'Cinzel',serif;font-size:15px;font-weight:700;color:var(--gold-d);}
+.rc-chip-desc{font-size:10px;color:var(--ink-m);margin-top:2px;}
+.levelup-banner{background:var(--ink);border-radius:10px;padding:10px;margin-bottom:12px;border:1px solid var(--gold-d);display:none;}
+.levelup-banner.show{display:block;animation:flashGold 0.7s ease;}
+@keyframes flashGold{0%,100%{border-color:var(--gold-d);}50%{border-color:var(--gold-l);box-shadow:0 0 18px rgba(201,168,76,0.5);}}
+.lu-text{font-family:'Cinzel',serif;font-size:13px;color:var(--gold);letter-spacing:1.5px;font-weight:600;}
+.rc-summary{background:var(--beige);border-radius:10px;padding:10px 12px;margin-bottom:12px;}
+.rc-sum-title{font-family:'Cinzel',serif;font-size:9px;letter-spacing:1.5px;color:var(--ink-m);margin-bottom:6px;}
+.rc-sum-row{display:flex;justify-content:space-between;font-size:12px;margin-bottom:3px;}
+.rc-quote{font-size:12px;color:var(--ink-m);font-style:italic;line-height:1.6;border-top:1px solid var(--beige-d);padding-top:10px;margin-bottom:12px;}
+.btn-next{width:100%;background:var(--ink);color:var(--gold);font-family:'Cinzel',serif;font-size:13px;font-weight:700;letter-spacing:2px;border:1.5px solid var(--gold-d);border-radius:10px;padding:13px;cursor:pointer;transition:all 0.2s;}
+.btn-next:hover{border-color:var(--gold);}
+</style>
+</head>
+<body>
+
+<!-- NOTIFICATIONS -->
+<div id="notif-container"></div>
+
+<!-- SORTING HAT -->
+<div id="hat-overlay">
+  <svg id="hat-svg" class="hat-anim" viewBox="0 0 180 200" xmlns="http://www.w3.org/2000/svg" width="170" height="190">
+    <ellipse cx="90" cy="155" rx="78" ry="18" fill="#2C1F0E" stroke="#5C3D1A" stroke-width="2"/>
+    <path d="M25 155 Q30 130 50 105 Q65 80 75 55 Q82 30 90 10 Q98 30 105 55 Q115 80 130 105 Q150 130 155 155 Z" fill="#3A2810" stroke="#5C3D1A" stroke-width="2"/>
+    <path d="M60 130 Q90 125 120 130" fill="none" stroke="#5C3D1A" stroke-width="1.5" stroke-linecap="round"/>
+    <path d="M50 145 Q90 140 130 145" fill="none" stroke="#5C3D1A" stroke-width="1.5" stroke-linecap="round"/>
+    <path d="M65 100 Q72 88 82 85 Q75 95 78 108 Q70 110 65 100Z" fill="#4A3218" stroke="#5C3D1A" stroke-width="1"/>
+    <ellipse cx="78" cy="118" rx="7" ry="5" fill="#1A0F05"/>
+    <ellipse cx="102" cy="118" rx="7" ry="5" fill="#1A0F05"/>
+    <circle cx="76" cy="117" r="2.2" fill="#C9A84C"/>
+    <circle cx="100" cy="117" r="2.2" fill="#C9A84C"/>
+    <path d="M70 111 Q78 107 86 111" fill="none" stroke="#5C3D1A" stroke-width="2" stroke-linecap="round"/>
+    <path d="M94 111 Q102 107 110 111" fill="none" stroke="#5C3D1A" stroke-width="2" stroke-linecap="round"/>
+    <path id="hat-mouth" d="M80 132 Q90 139 100 132" fill="none" stroke="#5C3D1A" stroke-width="2.5" stroke-linecap="round"/>
+    <rect x="26" y="148" width="128" height="10" rx="2" fill="#1A0F05" stroke="#5C3D1A" stroke-width="1"/>
+    <rect x="80" y="146" width="20" height="14" rx="2" fill="#C9A84C" stroke="#8B6914" stroke-width="1"/>
+    <rect x="85" y="150" width="10" height="6" rx="1" fill="none" stroke="#8B6914" stroke-width="1.2"/>
+    <circle id="hat-tip" cx="90" cy="12" r="3.5" fill="#E8C96B">
+      <animate attributeName="opacity" values="1;0.3;1" dur="1.1s" repeatCount="indefinite"/>
+      <animate attributeName="r" values="3.5;5.5;3.5" dur="1.1s" repeatCount="indefinite"/>
+    </circle>
+  </svg>
+  <div class="speech-bubble" id="hat-speech"><span id="hat-text">Hmm… let me take a look inside your mind…</span></div>
+  <div class="hat-house-reveal" id="hat-reveal">
+    <div class="hat-house-name" id="hat-hname">GRYFFINDOR!</div>
+    <div id="hat-hsub" style="font-family:'Crimson Pro',serif;font-size:13px;color:#8A8A9A;font-style:italic;margin-top:4px;"></div>
+  </div>
+  <button class="hat-continue" id="hat-continue" onclick="finishSorting()">ENTER THE CASTLE ✦</button>
+</div>
+
+<!-- SPELL OVERLAY -->
+<div id="spell-overlay"></div>
+
+<!-- ══ SIGN IN ══ -->
+<div id="signin" class="screen active">
+  <div class="signin-wrap">
+    <div class="si-crest">🦉</div>
+    <div class="si-title">HOGWARTS × HACK</div>
+    <div class="si-sub">Ministry of Focus — Enrol Your Wizard</div>
+    <div class="field-label">WIZARD NAME</div>
+    <input class="field-input" id="si-name" placeholder="e.g. Harry Potter" type="text">
+    <div class="field-label">SECRET SPELL (PASSWORD)</div>
+    <div class="pass-wrap">
+      <input class="field-input" id="si-pass" placeholder="Alohomora…" type="password">
+      <button class="eye-btn" id="eye-btn" onclick="toggleEye()" title="Show/hide">👁️</button>
+    </div>
+    <div class="house-section-label">CHOOSE YOUR HOUSE — THE HAT WILL CONFIRM</div>
+    <div class="house-grid">
+      <div class="hchip gryf" data-house="Gryffindor" onclick="selectHouse(this)">
+        <div class="hchip-bg" style="background:linear-gradient(135deg,rgba(139,0,0,0.3),rgba(212,160,23,0.15));"></div>
+        <span class="hchip-icon">🦁</span><div class="hchip-name">GRYFFINDOR</div>
+        <div class="hchip-dots"><div class="hdot" style="background:#8B0000;"></div><div class="hdot" style="background:#D4A017;"></div></div>
+      </div>
+      <div class="hchip slyth" data-house="Slytherin" onclick="selectHouse(this)">
+        <div class="hchip-bg" style="background:linear-gradient(135deg,rgba(26,71,42,0.3),rgba(192,192,192,0.1));"></div>
+        <span class="hchip-icon">🐍</span><div class="hchip-name">SLYTHERIN</div>
+        <div class="hchip-dots"><div class="hdot" style="background:#1A472A;"></div><div class="hdot" style="background:#B0B0B0;"></div></div>
+      </div>
+      <div class="hchip rave" data-house="Ravenclaw" onclick="selectHouse(this)">
+        <div class="hchip-bg" style="background:linear-gradient(135deg,rgba(12,53,71,0.3),rgba(148,107,45,0.15));"></div>
+        <span class="hchip-icon">🦅</span><div class="hchip-name">RAVENCLAW</div>
+        <div class="hchip-dots"><div class="hdot" style="background:#0C3547;"></div><div class="hdot" style="background:#946B2D;"></div></div>
+      </div>
+      <div class="hchip huff" data-house="Hufflepuff" onclick="selectHouse(this)">
+        <div class="hchip-bg" style="background:linear-gradient(135deg,rgba(227,168,32,0.25),rgba(44,44,44,0.15));"></div>
+        <span class="hchip-icon">🦡</span><div class="hchip-name">HUFFLEPUFF</div>
+        <div class="hchip-dots"><div class="hdot" style="background:#E3A820;"></div><div class="hdot" style="background:#2C2C2C;"></div></div>
+      </div>
+    </div>
+    <button class="btn-signin" onclick="doSignIn()">🎩 LET THE HAT DECIDE ✦</button>
+    <div class="si-quote" id="si-quote"></div>
+  </div>
+</div>
+
+<!-- ══ DASHBOARD ══ -->
+<div id="dash" class="screen">
+  <div class="hdr" id="d-hdr">
+    <div><div class="hdr-logo" id="d-logo">HOGWARTS × HACK</div><div class="hdr-sub" id="d-sub">MINISTRY OF FOCUS</div></div>
+    <div style="display:flex;align-items:center;gap:12px;">
+      <button onclick="showNotifPanel()" style="background:none;border:none;cursor:pointer;font-size:22px;position:relative;" id="bell-btn">
+        🔔<span id="bell-badge" class="nav-badge" style="top:-4px;right:-4px;display:none;">0</span>
+      </button>
+      <div style="text-align:right;">
+        <div id="d-house-lbl" style="font-size:10px;opacity:0.6;">House</div>
+        <div id="d-house-name" style="font-family:'Cinzel',serif;font-size:13px;font-weight:600;">Gryffindor</div>
+      </div>
+    </div>
+  </div>
+  <div class="dash-body">
+    <div class="user-hero" id="d-hero">
+      <div class="hero-bg-icon" id="d-bg-icon">⚡</div>
+      <div class="hero-greeting" id="d-greeting">WELCOME BACK, WIZARD</div>
+      <div class="hero-name" id="d-name">Harry Potter</div>
+      <div class="level-badge" id="d-badge"><span style="font-size:16px;">🧙</span><span class="level-label" id="d-level">WIZARD LEVEL I</span></div>
+      <div class="xp-row"><span id="d-xp-val">150</span><span id="d-xp-suf">&nbsp;House Points</span><span id="d-xp-nxt">Next: 300 pts</span></div>
+      <div class="xp-bar-bg" id="d-bar-bg"><div class="xp-bar-fill" id="d-bar" style="width:50%;"></div></div>
+    </div>
+    <div class="quote-card" id="d-qcard">
+      <div class="quote-text" id="d-qtext">"It does not do to dwell on dreams and forget to live."</div>
+      <div class="quote-ref" id="d-qref">— ALBUS DUMBLEDORE</div>
+    </div>
+    <div class="stats-grid">
+      <div class="stat-card" id="sc-streak"><div class="stat-icon">🔥</div><div class="stat-val" id="d-streak" style="color:#E74C3C;">0</div><div class="stat-lbl">Day Streak</div></div>
+      <div class="stat-card" id="sc-pts"><div class="stat-icon">⚡</div><div class="stat-val" id="d-pts">150</div><div class="stat-lbl">House Points</div></div>
+      <div class="stat-card" id="sc-done"><div class="stat-icon">📜</div><div class="stat-val" id="d-done">0</div><div class="stat-lbl">Missions Done</div></div>
+      <div class="stat-card" id="sc-cons"><div class="stat-icon">🎯</div><div class="stat-val" id="d-cons">71%</div><div class="stat-lbl">Consistency</div></div>
+    </div>
+    <!-- WEEKLY SCROLL (upgraded) -->
+    <div class="week-card" id="d-wcard">
+      <div class="week-title" id="d-wtitle">WEEKLY SCROLL</div>
+      <div class="week-rows" id="d-wrows"></div>
+    </div>
+    <!-- TOM RIDDLE CHALLENGE -->
+    <div class="challenge-card" id="d-challenge" onclick="acceptChallenge()">
+      <div class="challenge-skull">💀</div>
+      <div class="challenge-label" id="ch-label">⚠ TOM RIDDLE'S CHALLENGE</div>
+      <div class="challenge-title" id="ch-title">The Chamber of Focus</div>
+      <div class="challenge-desc" id="ch-desc">"Dare to complete 3 missions today without pause. Prove you are worthy of the dark arts of discipline."</div>
+      <div class="challenge-meta">
+        <span class="challenge-xp" id="ch-xp">+200 pts</span>
+        <span class="challenge-timer" id="ch-timer">⏳ Expires at midnight</span>
+      </div>
+    </div>
+    <!-- LEADERBOARD -->
+    <div class="lb-card" id="d-lbcard">
+      <div class="lb-title" id="d-lbtitle">HOUSE LEADERBOARD</div>
+      <div id="d-lb"></div>
+    </div>
+    <button class="btn-start" id="d-cta" onclick="goTo('missions')">✦ START MISSION ✦</button>
+  </div>
+  <div class="bottom-nav" id="d-nav">
+    <button class="nav-btn active" onclick="navTo('dash',this,0)"><span class="nav-icon">🏰</span><span class="nav-label">HOME</span></button>
+    <button class="nav-btn" onclick="navTo('missions',this,1)"><span class="nav-icon">📜</span><span class="nav-label">MISSIONS</span></button>
+    <button class="nav-btn" onclick="navTo('timer-screen',this,2)"><span class="nav-icon">⏳</span><span class="nav-label">TIMER</span></button>
+    <button class="nav-btn" onclick="navTo('chatbot-screen',this,3)"><span class="nav-icon">📓</span><span class="nav-label">DIARY</span></button>
+  </div>
+</div>
+
+<!-- ══ MISSIONS ══ -->
+<div id="missions" class="screen">
+  <div class="hdr" id="m-hdr">
+    <button class="back-btn" id="m-back" onclick="navTo('dash',null,0)">← BACK</button>
+    <div style="font-family:'Cinzel',serif;font-size:12px;font-weight:600;" id="m-title">MISSION SCROLL</div>
+    <div style="width:56px;"></div>
+  </div>
+  <div class="mis-body" id="m-body">
+    <div style="font-family:'Cinzel',serif;font-size:16px;font-weight:700;margin-bottom:3px;" id="m-heading">Today's Spells</div>
+    <div style="font-size:13px;font-style:italic;margin-bottom:14px;" id="m-sub">Choose a mission to channel your magic</div>
+    <div id="mission-list"></div>
+    <button class="btn-session" id="btn-session" onclick="startMission()" disabled>✦ CAST SESSION ✦</button>
+  </div>
+  <div class="bottom-nav" id="m-nav">
+    <button class="nav-btn" onclick="navTo('dash',this,0)"><span class="nav-icon">🏰</span><span class="nav-label">HOME</span></button>
+    <button class="nav-btn active" onclick="navTo('missions',this,1)"><span class="nav-icon">📜</span><span class="nav-label">MISSIONS</span></button>
+    <button class="nav-btn" onclick="navTo('timer-screen',this,2)"><span class="nav-icon">⏳</span><span class="nav-label">TIMER</span></button>
+    <button class="nav-btn" onclick="navTo('chatbot-screen',this,3)"><span class="nav-icon">📓</span><span class="nav-label">DIARY</span></button>
+  </div>
+</div>
+
+<!-- ══ TIMER ══ -->
+<div id="timer-screen" class="screen">
+  <div class="hdr" id="t-hdr">
+    <button class="back-btn" id="t-back" onclick="navTo('missions',null,1)">← BACK</button>
+    <div class="hdr-logo" id="t-logo">FOCUS CHAMBER</div>
+    <div style="width:56px;"></div>
+  </div>
+  <div class="timer-body">
+    <div class="t-lbl" id="t-lbl">ACTIVE SPELL</div>
+    <div class="t-name" id="t-name">Modern History</div>
+    <div class="ring-wrap">
+      <svg style="transform:rotate(-90deg);" width="200" height="200" viewBox="0 0 220 220">
+        <defs>
+          <linearGradient id="rg" x1="0%" y1="0%" x2="100%" y2="0%">
+            <stop id="rg1" offset="0%" stop-color="#5C0011"/>
+            <stop id="rg2" offset="50%" stop-color="#C41E3A"/>
+            <stop id="rg3" offset="100%" stop-color="#D4A017"/>
+          </linearGradient>
+        </defs>
+        <circle id="ring-track" cx="110" cy="110" r="95" fill="none" stroke="#2A1010" stroke-width="10"/>
+        <circle id="ring-fill" cx="110" cy="110" r="95" fill="none" stroke="url(#rg)" stroke-width="10" stroke-linecap="round" stroke-dasharray="596.9" stroke-dashoffset="0"/>
+      </svg>
+      <div style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);text-align:center;">
+        <span class="t-digits" id="t-disp">25:00</span>
+        <span class="t-rem" id="t-rem">REMAINING</span>
+      </div>
+    </div>
+    <div class="t-controls">
+      <button class="btn-pause" id="btn-pause" onclick="togglePause()">⏸ PAUSE</button>
+      <button class="btn-complete" id="btn-complete" onclick="completeMission()">✓ COMPLETE</button>
+    </div>
+    <div class="t-tip" id="t-tip">"Happiness can be found even in the darkest of times."</div>
+  </div>
+</div>
+
+<!-- ══ TOM RIDDLE DIARY CHATBOT ══ -->
+<div id="chatbot-screen" class="screen">
+  <div class="diary-bg"></div>
+  <div class="diary-margin"></div>
+  <div class="hdr" id="c-hdr" style="position:relative;z-index:1;">
+    <button class="back-btn" id="c-back" onclick="navTo('dash',null,0)">← BACK</button>
+    <div>
+      <div class="hdr-logo" id="c-logo" style="font-family:'Special Elite',serif;">T. M. Riddle's Diary</div>
+      <div class="hdr-sub" id="c-sub">Write your secrets... if you dare</div>
+    </div>
+    <div style="font-size:22px;">🖊️</div>
+  </div>
+  <div class="chat-content">
+    <div class="chat-body" id="chat-body"></div>
+    <div class="chat-sugs" id="chat-sugs">
+      <button class="sug-btn" onclick="sendSug(this)">Help me study</button>
+      <button class="sug-btn" onclick="sendSug(this)">I'm losing motivation</button>
+      <button class="sug-btn" onclick="sendSug(this)">What is the challenge today?</button>
+      <button class="sug-btn" onclick="sendSug(this)">How do I level up faster?</button>
+    </div>
+    <div class="chat-inp-row" id="c-inp-row">
+      <input class="chat-input" id="chat-input" placeholder="Write in the diary…" onkeydown="if(event.key==='Enter')sendChat()">
+      <button class="chat-send" onclick="sendChat()">🖊️</button>
+    </div>
+  </div>
+  <div class="bottom-nav" id="c-nav">
+    <button class="nav-btn" onclick="navTo('dash',this,0)"><span class="nav-icon">🏰</span><span class="nav-label">HOME</span></button>
+    <button class="nav-btn" onclick="navTo('missions',this,1)"><span class="nav-icon">📜</span><span class="nav-label">MISSIONS</span></button>
+    <button class="nav-btn" onclick="navTo('timer-screen',this,2)"><span class="nav-icon">⏳</span><span class="nav-label">TIMER</span></button>
+    <button class="nav-btn active" onclick="navTo('chatbot-screen',this,3)"><span class="nav-icon">📓</span><span class="nav-label">DIARY</span></button>
+  </div>
+</div>
+
+<!-- RESULT POPUP -->
+<div class="overlay" id="result-overlay">
+  <div class="result-card">
+    <div class="rc-crest">🏆</div>
+    <div class="rc-title">Mission Complete!</div>
+    <div class="rc-sub" id="r-name">Modern History</div>
+    <div class="rc-rewards">
+      <div class="rc-chip"><div class="rc-chip-icon">⚡</div><div class="rc-chip-val" id="r-xp">+50</div><div class="rc-chip-desc">House Points</div></div>
+      <div class="rc-chip"><div class="rc-chip-icon">🔥</div><div class="rc-chip-val" id="r-streak">🔥 1</div><div class="rc-chip-desc">Day Streak</div></div>
+    </div>
+    <div class="levelup-banner" id="lu-banner">
+      <div class="lu-text">✦ WIZARD LEVEL UP! ✦</div>
+      <div id="lu-new" style="font-size:11px;color:#8A8A9A;margin-top:3px;"></div>
+    </div>
+    <div class="rc-summary">
+      <div class="rc-sum-title">SPELL SUMMARY</div>
+      <div class="rc-sum-row"><span style="color:var(--ink-m);">Total Points</span><span id="r-total" style="font-family:'Cinzel',serif;color:var(--gold-d);font-weight:600;">200</span></div>
+      <div class="rc-sum-row"><span style="color:var(--ink-m);">Consistency</span><span id="r-cons" style="font-family:'Cinzel',serif;color:var(--gold-d);font-weight:600;">71%</span></div>
+      <div class="rc-sum-row"><span style="color:var(--ink-m);">Streak</span><span id="r-stk2" style="font-family:'Cinzel',serif;color:var(--gold-d);font-weight:600;">1 day</span></div>
+    </div>
+    <div class="rc-quote" id="r-quote"></div>
+    <button class="btn-next" onclick="closeResult()">RETURN TO HALL ✦</button>
+  </div>
+</div>
+
+<script>
+// ══════ HOUSE DATA ══════
+const H={
+  Gryffindor:{pri:'#8B0000',sec:'#D4A017',acc:'#C41E3A',bg:'#FFF5F5',bg2:'#FDEAEA',dark:'#100505',text:'#FF9090',textDark:'#5C0011',border:'#C41E3A',navBg:'#100505',navBorder:'#2A0808',navActive:'#E88080',heroBg:'linear-gradient(135deg,#1C0808 0%,#100505 100%)',heroText:'#E88080',heroName:'#E8C96B',statBg:'#FFF5F5',statBorder:'#F5C0C0',statText:'#5C0011',barFill:'linear-gradient(90deg,#5C0011,#C41E3A,#D4A017)',btnBg:'#C41E3A',btnText:'#FAF6EE',btnShadow:'rgba(196,30,58,0.4)',timerBg:'#0D0404',timerText:'#FF9090',timerDigits:'#E8C96B',ringBg:'#2A0808',rg1:'#5C0011',rg2:'#C41E3A',rg3:'#D4A017',chatBg:'#FDF5F0',chatBorder:'#E8C0A0',chatText:'#2A1A0A',chatSender:'#8B0000',chatUserBg:'#8B0000',chatUserText:'#FAF6EE',challengeBg:'rgba(139,0,0,0.06)',challengeBorder:'#C41E3A',challengeLabel:'#C41E3A',challengeXpBg:'rgba(139,0,0,0.12)',icon:'🦁',emoji:'⚔️',hat:["Hmm… I sense great courage here. A burning desire to prove yourself…","There's bravery in your heart — and a stubborn streak a mile wide!","Only one house could hold you — GRYFFINDOR!"],hatSub:"Where dwell the brave at heart!",hatColor:'#C41E3A',lb:[{n:'Hermione Granger',pts:2450,h:'🦁'},{n:'Harry Potter',pts:1920,h:'🦁'},{n:'Ron Weasley',pts:1340,h:'🦁'}]},
+  Slytherin:{pri:'#1A472A',sec:'#C0C0C0',acc:'#2E7D4F',bg:'#F0F7F2',bg2:'#E2F0E6',dark:'#050F08',text:'#6BBF88',textDark:'#0D3318',border:'#2E7D4F',navBg:'#050F08',navBorder:'#0D2015',navActive:'#6BBF88',heroBg:'linear-gradient(135deg,#050F08 0%,#030A05 100%)',heroText:'#6BBF88',heroName:'#C0C0C0',statBg:'#F0F7F2',statBorder:'#B0D4BC',statText:'#0D3318',barFill:'linear-gradient(90deg,#0D3318,#2E7D4F,#C0C0C0)',btnBg:'#2E7D4F',btnText:'#FAF6EE',btnShadow:'rgba(46,125,79,0.4)',timerBg:'#050F08',timerText:'#6BBF88',timerDigits:'#C0C0C0',ringBg:'#0D2015',rg1:'#0D3318',rg2:'#2E7D4F',rg3:'#C0C0C0',chatBg:'#F0F7F5',chatBorder:'#A8D4B8',chatText:'#0D3318',chatSender:'#1A472A',chatUserBg:'#1A472A',chatUserText:'#E8F0EA',challengeBg:'rgba(26,71,42,0.06)',challengeBorder:'#2E7D4F',challengeLabel:'#2E7D4F',challengeXpBg:'rgba(26,71,42,0.12)',icon:'🐍',emoji:'🌿',hat:["Cunning… resourcefulness… oh yes, I can see ambition burning here.","You'd stop at nothing to achieve your goals. Remarkable determination.","The clever and the driven belong in — SLYTHERIN!"],hatSub:"Those cunning folk use any means!",hatColor:'#2E7D4F',lb:[{n:'Draco Malfoy',pts:2100,h:'🐍'},{n:'Pansy Parkinson',pts:1600,h:'🐍'},{n:'Blaise Zabini',pts:1200,h:'🐍'}]},
+  Ravenclaw:{pri:'#0C3547',sec:'#946B2D',acc:'#1B5E7B',bg:'#EEF4F8',bg2:'#DDE9F0',dark:'#040D14',text:'#6BAED6',textDark:'#072030',border:'#1B5E7B',navBg:'#040D14',navBorder:'#0A1E2C',navActive:'#6BAED6',heroBg:'linear-gradient(135deg,#040D14 0%,#030A10 100%)',heroText:'#6BAED6',heroName:'#946B2D',statBg:'#EEF4F8',statBorder:'#A8C8DC',statText:'#072030',barFill:'linear-gradient(90deg,#072030,#1B5E7B,#946B2D)',btnBg:'#1B5E7B',btnText:'#FAF6EE',btnShadow:'rgba(27,94,123,0.4)',timerBg:'#040D14',timerText:'#6BAED6',timerDigits:'#946B2D',ringBg:'#0C2030',rg1:'#072030',rg2:'#1B5E7B',rg3:'#946B2D',chatBg:'#EEF4F8',chatBorder:'#A8C8DC',chatText:'#072030',chatSender:'#0C3547',chatUserBg:'#0C3547',chatUserText:'#D8ECF5',challengeBg:'rgba(12,53,71,0.06)',challengeBorder:'#1B5E7B',challengeLabel:'#1B5E7B',challengeXpBg:'rgba(12,53,71,0.12)',icon:'🦅',emoji:'📚',hat:["A mind sharp as a blade… wisdom beyond your years…","You value knowledge above all else. Learning is your lifeblood!","Without a doubt, you belong in — RAVENCLAW!"],hatSub:"Wit beyond measure is man's greatest treasure!",hatColor:'#1B5E7B',lb:[{n:'Luna Lovegood',pts:2300,h:'🦅'},{n:'Cho Chang',pts:1750,h:'🦅'},{n:'Filius Flitwick',pts:1400,h:'🦅'}]},
+  Hufflepuff:{pri:'#5C3D00',sec:'#E3A820',acc:'#D4930A',bg:'#FEFBF0',bg2:'#FDF4D3',dark:'#140F00',text:'#F0C040',textDark:'#5C3D00',border:'#D4930A',navBg:'#140F00',navBorder:'#28200A',navActive:'#F0C040',heroBg:'linear-gradient(135deg,#140F00 0%,#0E0A00 100%)',heroText:'#F0C040',heroName:'#E3A820',statBg:'#FEFBF0',statBorder:'#EDD898',statText:'#5C3D00',barFill:'linear-gradient(90deg,#3A2800,#D4930A,#E3A820)',btnBg:'#D4930A',btnText:'#140F00',btnShadow:'rgba(212,147,10,0.4)',timerBg:'#140F00',timerText:'#F0C040',timerDigits:'#E3A820',ringBg:'#2A2000',rg1:'#3A2800',rg2:'#D4930A',rg3:'#E3A820',chatBg:'#FEFBF0',chatBorder:'#EDD898',chatText:'#3D2D00',chatSender:'#5C3D00',chatUserBg:'#5C3D00',chatUserText:'#FDF4D3',challengeBg:'rgba(92,61,0,0.06)',challengeBorder:'#D4930A',challengeLabel:'#D4930A',challengeXpBg:'rgba(212,147,10,0.15)',icon:'🦡',emoji:'🌻',hat:["Patient… loyal… kind-hearted… what a wonderful soul I find here.","You'd stand by your friends through anything. That loyalty is rare.","There's only one place for someone like you — HUFFLEPUFF!"],hatSub:"Those patient Hufflepuffs are true and unafraid of toil!",hatColor:'#D4930A',lb:[{n:'Newt Scamander',pts:1980,h:'🦡'},{n:'Nymphadora Tonks',pts:1620,h:'🦡'},{n:'Cedric Diggory',pts:1380,h:'🦡'}]},
+};
+
+const LEVELS=[{name:'Wizard Level I',min:0,max:300},{name:'Wizard Level II',min:300,max:700},{name:'Wizard Level III',min:700,max:1200},{name:'Wizard Level IV',min:1200,max:2000},{name:'Grand Archmage',min:2000,max:99999}];
+const MISSIONS=[
+  {id:0,icon:'📜',name:'Modern History',dur:25,xp:50},
+  {id:1,icon:'⚖️',name:'Polity & Governance',dur:25,xp:50},
+  {id:2,icon:'🌍',name:'Geography Enchantments',dur:30,xp:60},
+  {id:3,icon:'💰',name:'Economics Alchemy',dur:25,xp:50},
+  {id:4,icon:'🔬',name:'Science & Technology',dur:20,xp:40},
+];
+const QUOTES=[
+  {t:'"It does not do to dwell on dreams and forget to live."',r:'— ALBUS DUMBLEDORE'},
+  {t:'"It is our choices that show what we truly are."',r:'— ALBUS DUMBLEDORE'},
+  {t:'"Happiness can be found even in the darkest of times."',r:'— ALBUS DUMBLEDORE'},
+  {t:'"We must face the choice between what is right and what is easy."',r:'— ALBUS DUMBLEDORE'},
+  {t:'"Books! And cleverness! Friendship and bravery matter more."',r:'— HERMIONE GRANGER'},
+  {t:'"When in doubt, go to the library."',r:'— RON WEASLEY'},
+  {t:'"Wit beyond measure is man\'s greatest treasure."',r:'— ROWENA RAVENCLAW'},
+  {t:'"It takes bravery to stand up to our enemies — and our friends."',r:'— ALBUS DUMBLEDORE'},
+];
+const TIPS=['"Happiness can be found even in the darkest of times."','"When in doubt, go to the library." — Hermione','"It takes bravery to stand up to yourself." — Dumbledore','"Wit beyond measure is man\'s greatest treasure."'];
+const HS=['⚡ Expelliarmus!','⚡ Expecto Patronum!','⚡ Wingardium Leviosa!','⚡ Lumos Maxima!'];
+const HM=['🪄 Alohomora!','🪄 Reducto!','🪄 Protego Totalum!','🪄 Accio Knowledge!'];
+const CHALLENGES=[
+  {title:'The Chamber of Focus',desc:'"Dare to complete 3 missions today without pause. Prove your discipline is stronger than my Horcruxes."',xp:200,icon:'💀'},
+  {title:'The Basilisk\'s Gaze',desc:'"Stare down your weakest subject. Complete the hardest mission first. The weak-willed look away."',xp:150,icon:'🐍'},
+  {title:'The Horcrux Hunt',desc:'"Complete every single mission on the scroll today. Destroy all seven Horcruxes of ignorance."',xp:350,icon:'⚡'},
+  {title:'The Dark Mark',desc:'"Study for 2 hours straight. No breaks. No excuses. Only the worthy may bear this mark."',xp:180,icon:'🌑'},
+];
+const TOM_RESPONSES={
+  study:["*the ink appears slowly* …You seek knowledge. How delightfully ambitious. Begin with your weakest subject — face your fears, as I once faced mine in the Chamber.","*pages rustle on their own* Study? Yes… I once studied every book in Hogwarts library. Start with what frightens you most. That is where the real power lies."],
+  motivation:["*the diary grows warm in your hands* Motivation is for the ordinary. Discipline is what separates wizards from Muggles. You do not need to feel like studying. You simply must.","*dark ink swirls* I did not become the most powerful dark wizard of all time by waiting to feel motivated, did I? Open your books. Now."],
+  challenge:["*Tom Riddle smiles slowly* Ah… my daily challenge. Complete it and you shall earn more House Points than any ordinary mission. Fail, and we shall not speak of it.","*the pages flutter ominously* The challenge I have set is not for the faint-hearted. Three missions. No pause. Think you can manage it?"],
+  level:["*elegant handwriting appears* The five Wizard Levels mirror the five stages of mastering the Dark Arts — patience, precision, power, prestige, and finally… Grand Archmage. How far along are you?","*Riddle's tone darkens* Levels are earned, not given. Each House Point brings you closer to the top. Do not waste them."],
+  hello:["*the blank diary page begins to fill with ink* Ah. A new student has found me. I am Tom Riddle. Ask me anything — I have all the time in the world… and so much to teach.","*ink blooms across the page* Good. You opened the diary. I've been waiting. What is it you wish to know, young wizard?"],
+  def:["*the ink swirls thoughtfully* An interesting question. I would need more context. But know this — every question you ask brings you closer to the answer, and every answer brings you closer to power.","*Riddle pauses, then writes* I don't share my secrets easily. But ask me about studying, your challenges, levelling up, or your missions — those I will answer."],
+};
+
+let S={name:'',house:'Gryffindor',xp:150,streak:0,done:0,week:[true,true,false,true,true,false,false],weekMissions:['Modern History','Polity & Governance',null,'Geography Enchantments','Science & Technology',null,null],sel:null,tSec:25*60,tTotal:25*60,running:false,tInt:null,doneToday:false,qIdx:0,notifCount:0,chatInited:false,eyeOpen:false,challengeAccepted:false,};
+
+// ── NOTIFICATIONS ──
+function showNotif(icon,title,msg,color){
+  const cont=document.getElementById('notif-container');
+  const n=document.createElement('div'); n.className='notif';
+  if(color) n.style.borderColor=color;
+  n.innerHTML=`<span class="notif-icon">${icon}</span><div class="notif-body"><div class="notif-title" style="${color?'color:'+color:''}">${title}</div><div class="notif-msg">${msg}</div></div><button class="notif-close" onclick="dismissNotif(this)">✕</button>`;
+  cont.appendChild(n);
+  S.notifCount++;
+  updateBellBadge();
+  setTimeout(()=>{ n.classList.add('hide'); setTimeout(()=>n.remove(),400); },5000);
+}
+function dismissNotif(btn){
+  const n=btn.closest('.notif');
+  n.classList.add('hide');
+  setTimeout(()=>n.remove(),400);
+}
+function updateBellBadge(){
+  const badge=document.getElementById('bell-badge');
+  if(S.notifCount>0){badge.textContent=S.notifCount;badge.style.display='block';}
+  else badge.style.display='none';
+}
+function showNotifPanel(){
+  S.notifCount=0; updateBellBadge();
+  showNotif('🔔','All caught up!','No new notifications right now.',null);
+}
+function scheduleNotifs(){
+  setTimeout(()=>showNotif('💀','Tom Riddle\'s Challenge','A new dark challenge awaits you on the dashboard!','#8B0000'),3000);
+  setTimeout(()=>showNotif('🔥','Streak Reminder','Don\'t forget to complete a mission today to keep your streak alive!',null),8000);
+  setTimeout(()=>showNotif('⚡','House Points','You are 150 pts away from Wizard Level II. Keep going!',null),14000);
+}
+
+// ── SIGN IN ──
+let siQ=0;
+(function rot(){
+  const q=QUOTES[siQ%QUOTES.length];
+  const el=document.getElementById('si-quote');
+  el.style.opacity=0;
+  setTimeout(()=>{el.textContent=q.t+' '+q.r;el.style.opacity=1;},400);
+  siQ++; setTimeout(rot,4200);
+})();
+
+function toggleEye(){
+  S.eyeOpen=!S.eyeOpen;
+  const inp=document.getElementById('si-pass');
+  const btn=document.getElementById('eye-btn');
+  inp.type=S.eyeOpen?'text':'password';
+  btn.textContent=S.eyeOpen?'🙈':'👁️';
+}
+
+let selHouseEl=null;
+function selectHouse(el){
+  document.querySelectorAll('.hchip').forEach(c=>c.classList.remove('sel'));
+  el.classList.add('sel'); selHouseEl=el;
+}
+selectHouse(document.querySelector('.hchip'));
+
+function doSignIn(){
+  const n=document.getElementById('si-name').value.trim();
+  if(!n){document.getElementById('si-name').style.borderColor='#C41E3A';document.getElementById('si-name').focus();return;}
+  const hEl=selHouseEl||document.querySelector('.hchip');
+  S.name=n; S.house=hEl.dataset.house;
+  runHat(S.house);
+}
+
+// ── SORTING HAT ──
+function runHat(house){
+  const T=H[house];
+  const ov=document.getElementById('hat-overlay');
+  const speech=document.getElementById('hat-text');
+  const rev=document.getElementById('hat-reveal');
+  const hname=document.getElementById('hat-hname');
+  const hsub=document.getElementById('hat-hsub');
+  const cont=document.getElementById('hat-continue');
+  const tip=document.getElementById('hat-tip');
+  const mouth=document.getElementById('hat-mouth');
+  rev.classList.remove('show'); cont.classList.remove('show');
+  speech.parentElement.style.borderColor='var(--gold-d)';
+  tip.setAttribute('fill','#E8C96B'); mouth.setAttribute('stroke','#5C3D1A');
+  ov.classList.add('show');
+  const lines=T.hat;
+  speech.textContent=lines[0];
+  setTimeout(()=>{ speech.textContent=lines[1]; },2400);
+  setTimeout(()=>{ speech.textContent=lines[2]; speech.parentElement.style.borderColor=T.acc; mouth.setAttribute('stroke',T.acc); },4800);
+  setTimeout(()=>{
+    hname.textContent=house.toUpperCase()+'!'; hname.style.color=T.acc;
+    hsub.textContent=T.hatSub; hsub.style.color=T.text;
+    tip.setAttribute('fill',T.acc);
+    rev.classList.add('show'); cont.classList.add('show');
+    cont.style.background=T.acc; cont.style.color=T.btnText;
+  },6600);
+}
+function finishSorting(){
+  document.getElementById('hat-overlay').classList.remove('show');
+  applyTheme(S.house);
+  goTo('dash');
+  scheduleNotifs();
+}
+
+// ── THEME ──
+function applyTheme(house){
+  const T=H[house]; S._T=T;
+  // Dashboard
+  document.getElementById('dash').style.background=T.bg;
+  const dh=document.getElementById('d-hdr'); dh.style.background=T.dark; dh.style.borderBottom='1.5px solid '+T.border;
+  document.getElementById('d-logo').style.color=T.heroName;
+  document.getElementById('d-sub').style.color=T.text;
+  document.getElementById('d-house-name').style.color=T.text;
+  document.getElementById('d-house-name').textContent=house+' '+T.icon;
+  document.getElementById('d-house-lbl').style.color=T.text;
+  const hero=document.getElementById('d-hero'); hero.style.background=T.heroBg; hero.style.border='1px solid '+T.border;
+  document.getElementById('d-bg-icon').textContent=T.emoji;
+  document.getElementById('d-greeting').style.color=T.heroText;
+  document.getElementById('d-name').style.color=T.heroName;
+  const badge=document.getElementById('d-badge'); badge.style.background='rgba(0,0,0,0.25)'; badge.style.border='1px solid '+T.border;
+  document.getElementById('d-level').style.color=T.text;
+  document.getElementById('d-xp-suf').style.color=T.text;
+  document.getElementById('d-xp-nxt').style.color=T.text;
+  document.getElementById('d-bar-bg').style.background='rgba(255,255,255,0.06)';
+  document.getElementById('d-bar-bg').style.border='0.5px solid '+T.border;
+  document.getElementById('d-bar').style.background=T.barFill;
+  const qc=document.getElementById('d-qcard'); qc.style.background=T.statBg; qc.style.borderColor=T.statBorder; qc.style.borderLeftColor=T.acc;
+  document.getElementById('d-qtext').style.color=T.statText;
+  document.getElementById('d-qref').style.color=T.acc;
+  ['sc-streak','sc-pts','sc-done','sc-cons'].forEach(id=>{ const c=document.getElementById(id); c.style.background=T.statBg; c.style.borderColor=T.statBorder; });
+  document.getElementById('d-pts').style.color=T.acc;
+  document.getElementById('d-done').style.color=T.acc;
+  document.getElementById('d-cons').style.color=T.acc;
+  const wc=document.getElementById('d-wcard'); wc.style.background=T.statBg; wc.style.borderColor=T.statBorder;
+  document.getElementById('d-wtitle').style.color=T.acc;
+  // Challenge card
+  const ch=document.getElementById('d-challenge');
+  ch.style.background=T.challengeBg; ch.style.borderColor=T.challengeBorder;
+  document.getElementById('ch-label').style.color=T.challengeLabel;
+  document.getElementById('ch-title').style.color=T.statText||T.textDark;
+  document.getElementById('ch-desc').style.color=T.statText||T.textDark;
+  const chxp=document.getElementById('ch-xp'); chxp.style.background=T.challengeXpBg; chxp.style.color=T.challengeLabel;
+  // LB
+  const lbc=document.getElementById('d-lbcard'); lbc.style.background=T.statBg; lbc.style.borderColor=T.statBorder;
+  document.getElementById('d-lbtitle').style.color=T.acc;
+  const cta=document.getElementById('d-cta'); cta.style.background=T.btnBg; cta.style.color=T.btnText; cta.style.boxShadow='0 4px 18px '+T.btnShadow;
+  styleNav('d-nav',T,0);
+  // Missions
+  document.getElementById('missions').style.background=T.bg;
+  const mh=document.getElementById('m-hdr'); mh.style.background=T.statBg; mh.style.borderBottom='1.5px solid '+T.statBorder;
+  document.getElementById('m-back').style.color=T.acc;
+  document.getElementById('m-title').style.color=T.statText;
+  document.getElementById('m-body').style.background=T.bg;
+  document.getElementById('m-heading').style.color=T.textDark||T.pri;
+  document.getElementById('m-sub').style.color=T.acc;
+  styleNav('m-nav',T,1);
+  // Timer
+  const ts=document.getElementById('timer-screen'); ts.style.background=T.timerBg;
+  const th=document.getElementById('t-hdr'); th.style.background=T.timerBg; th.style.borderBottom='1.5px solid '+T.border;
+  document.getElementById('t-back').style.color=T.text;
+  document.getElementById('t-logo').style.color=T.heroName;
+  document.getElementById('t-lbl').style.color=T.text;
+  document.getElementById('t-name').style.color=T.timerDigits;
+  document.getElementById('t-disp').style.color=T.timerDigits;
+  document.getElementById('t-rem').style.color=T.text;
+  document.getElementById('t-tip').style.color=T.text;
+  document.getElementById('ring-track').setAttribute('stroke',T.ringBg);
+  document.getElementById('rg1').setAttribute('stop-color',T.rg1);
+  document.getElementById('rg2').setAttribute('stop-color',T.rg2);
+  document.getElementById('rg3').setAttribute('stop-color',T.rg3);
+  document.getElementById('btn-pause').style.color=T.text; document.getElementById('btn-pause').style.borderColor=T.border;
+  document.getElementById('btn-complete').style.background=T.btnBg; document.getElementById('btn-complete').style.color=T.btnText;
+  // Chatbot diary
+  const cs=document.getElementById('chatbot-screen'); cs.style.background=T.chatBg;
+  document.querySelector('.diary-bg').style.background='repeating-linear-gradient(0deg,transparent,transparent 28px,'+T.statBorder+'55 28px,'+T.statBorder+'55 29px)';
+  document.querySelector('.diary-margin').style.background=T.border+'40';
+  const ch2=document.getElementById('c-hdr'); ch2.style.background=T.chatBg; ch2.style.borderBottom='1.5px solid '+T.chatBorder;
+  document.getElementById('c-back').style.color=T.acc;
+  document.getElementById('c-logo').style.color=T.chatSender;
+  document.getElementById('c-sub').style.color=T.acc;
+  document.getElementById('chat-body').style.background='transparent';
+  const cir=document.getElementById('c-inp-row'); cir.style.background=T.chatBg; cir.style.borderTop='1px solid '+T.chatBorder;
+  const ci=document.getElementById('chat-input'); ci.style.background=T.chatBg; ci.style.borderColor=T.chatBorder; ci.style.color=T.chatText;
+  document.querySelectorAll('.sug-btn').forEach(b=>{ b.style.background=T.chatBg; b.style.borderColor=T.chatBorder; b.style.color=T.chatSender; });
+  styleNav('c-nav',T,3);
+}
+function styleNav(id,T,activeIdx){
+  const nav=document.getElementById(id);
+  nav.style.background=T.navBg; nav.style.borderTop='1px solid '+T.navBorder;
+  nav.querySelectorAll('.nav-btn').forEach((b,i)=>{ b.querySelectorAll('.nav-label').forEach(l=>l.style.color=i===activeIdx?T.navActive:'#4A4040'); });
+}
+
+// ── NAVIGATION ──
+function goTo(id){ navTo(id,null,0); }
+function navTo(id,btn,idx){
+  document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+  if(id==='dash') updateDash();
+  if(id==='missions') renderMissions();
+  if(id==='timer-screen') initTimer();
+  if(id==='chatbot-screen') initChat();
+  window.scrollTo(0,0);
+}
+
+// ── DASHBOARD ──
+function getLvl(xp){ for(let l of LEVELS)if(xp>=l.min&&xp<l.max)return l; return LEVELS[LEVELS.length-1]; }
+function updateDash(){
+  const T=S._T||H[S.house];
+  const lvl=getLvl(S.xp);
+  document.getElementById('d-name').textContent=S.name||'Young Wizard';
+  document.getElementById('d-level').textContent=lvl.name.toUpperCase();
+  document.getElementById('d-xp-val').textContent=S.xp;
+  document.getElementById('d-xp-nxt').textContent='Next: '+lvl.max+' pts';
+  const pct=Math.min(((S.xp-lvl.min)/(lvl.max-lvl.min))*100,100);
+  document.getElementById('d-bar').style.width=pct+'%';
+  document.getElementById('d-streak').textContent=S.streak;
+  document.getElementById('d-pts').textContent=S.xp;
+  document.getElementById('d-done').textContent=S.done;
+  const ddays=S.week.filter(Boolean).length;
+  document.getElementById('d-cons').textContent=Math.round((ddays/7)*100)+'%';
+  const q=QUOTES[S.qIdx%QUOTES.length];
+  document.getElementById('d-qtext').textContent=q.t;
+  document.getElementById('d-qref').textContent=q.r;
+  // Weekly scroll with missions
+  const days=['MON','TUE','WED','THU','FRI','SAT','SUN'];
+  const wrap=document.getElementById('d-wrows'); wrap.innerHTML='';
+  S.week.forEach((done,i)=>{
+    const isToday=i===4;
+    const row=document.createElement('div'); row.className='week-row';
+    const dot=document.createElement('div'); dot.className='wdot';
+    dot.textContent=days[i].charAt(0);
+    if(isToday){ dot.style.background=T.pri; dot.style.color=T.text; dot.style.border='1.5px solid '+T.acc; }
+    else if(done){ dot.style.background=T.acc; dot.style.color='#FAF6EE'; }
+    else{ dot.style.background=T.statBg; dot.style.color=T.acc; dot.style.border='1px solid '+T.statBorder; }
+    const mName=document.createElement('div'); mName.className='week-mission';
+    const mission=S.weekMissions[i];
+    if(done && mission){ mName.textContent=mission; mName.style.color=T.statText; }
+    else if(isToday){ mName.textContent='Today — in progress'; mName.style.color=T.acc; mName.style.fontStyle='normal'; }
+    else{ mName.textContent='—'; mName.style.color=T.statBorder; }
+    const xpEl=document.createElement('div'); xpEl.className='week-xp';
+    if(done){ xpEl.textContent='+50 pts'; xpEl.style.color=T.acc; }
+    else{ xpEl.textContent=''; }
+    row.appendChild(dot); row.appendChild(mName); row.appendChild(xpEl);
+    wrap.appendChild(row);
+  });
+  // Challenge
+  const ch=CHALLENGES[Math.floor(new Date().getDate())%CHALLENGES.length];
+  document.getElementById('ch-title').textContent=(S.challengeAccepted?'✓ ':'')+(ch.icon+' '+ch.title);
+  document.getElementById('ch-desc').textContent=ch.desc;
+  document.getElementById('ch-xp').textContent='+'+ch.xp+' pts';
+  // Leaderboard
+  const lb=document.getElementById('d-lb'); lb.innerHTML='';
+  const rows=[...T.lb,{n:S.name||'You',pts:S.xp,h:T.icon,isMe:true}];
+  rows.sort((a,b)=>b.pts-a.pts);
+  rows.slice(0,4).forEach((r,i)=>{
+    const medals=['🥇','🥈','🥉','4️⃣'];
+    const row=document.createElement('div'); row.className='lb-row'; row.style.borderBottomColor=T.statBorder;
+    if(r.isMe){ row.style.background='rgba(0,0,0,0.04)'; row.style.borderRadius='8px'; }
+    row.innerHTML=`<span class="lb-rank" style="color:${T.acc};">${medals[i]||i+1}</span>
+      <div class="lb-avatar" style="background:${T.dark};border:1px solid ${T.border};">${r.h}</div>
+      <div class="lb-info"><div class="lb-name" style="color:${T.statText};${r.isMe?'font-weight:700;':''}">${r.n}${r.isMe?' (You)':''}</div><div class="lb-pts" style="color:${T.acc};">${r.pts} pts</div></div>
+      <span class="lb-badge" style="background:${T.dark};color:${T.text};">${getLvl(r.pts).name.split(' ').slice(-1)[0]}</span>`;
+    lb.appendChild(row);
+  });
+}
+
+function acceptChallenge(){
+  if(S.challengeAccepted) return;
+  S.challengeAccepted=true;
+  const ch=CHALLENGES[Math.floor(new Date().getDate())%CHALLENGES.length];
+  showNotif('💀','Challenge Accepted!','Tom Riddle watches... Complete it to earn '+ch.xp+' pts.','#8B0000');
+  updateDash();
+}
+
+// ── MISSIONS ──
+function renderMissions(){
+  const T=S._T||H[S.house];
+  const list=document.getElementById('mission-list'); list.innerHTML='';
+  MISSIONS.forEach(m=>{
+    const card=document.createElement('div'); card.className='mission-card';
+    const isSel=S.sel===m.id;
+    card.style.background=isSel?T.bg2:T.statBg; card.style.borderColor=isSel?T.acc:T.statBorder;
+    card.innerHTML=`<div class="mc-stripe" style="background:${T.acc};"></div>
+      <div class="mc-icon" style="background:${T.dark};">${m.icon}</div>
+      <div style="flex:1;">
+        <div class="mc-name" style="color:${T.statText};">${m.name}</div>
+        <div class="mc-meta">
+          <span class="mc-time" style="color:${T.acc};">⏱ ${m.dur} min</span>
+          <span class="mc-xp" style="background:rgba(0,0,0,0.06);color:${T.acc};">+${m.xp} pts</span>
+        </div>
+      </div>
+      <div style="color:${T.acc};font-size:18px;">›</div>`;
+    card.onclick=()=>{ S.sel=m.id; renderMissions(); };
+    list.appendChild(card);
+  });
+  document.getElementById('btn-session').disabled=S.sel===null;
+  document.getElementById('btn-session').style.color=T.btnBg; document.getElementById('btn-session').style.borderColor=T.btnBg;
+}
+function startMission(){
+  if(S.sel===null) return;
+  const m=MISSIONS[S.sel]; S.tTotal=m.dur*60; S.tSec=m.dur*60;
+  navTo('timer-screen',null,2);
+}
+
+// ── TIMER ──
+function initTimer(){
+  const T=S._T||H[S.house];
+  const m=S.sel!==null?MISSIONS[S.sel]:MISSIONS[0];
+  document.getElementById('t-name').textContent=m.name;
+  document.getElementById('t-tip').textContent=TIPS[Math.floor(Math.random()*TIPS.length)];
+  if(S.tInt) clearInterval(S.tInt);
+  S.running=true; S.tInt=setInterval(tick,1000);
+  document.getElementById('btn-pause').textContent='⏸ PAUSE';
+  renderTimer();
+}
+function tick(){ if(!S.running) return; if(S.tSec>0){S.tSec--;renderTimer();}else{clearInterval(S.tInt);completeMission();} }
+function renderTimer(){
+  const m=Math.floor(S.tSec/60),s=S.tSec%60;
+  document.getElementById('t-disp').textContent=String(m).padStart(2,'0')+':'+String(s).padStart(2,'0');
+  document.getElementById('ring-fill').style.strokeDashoffset=596.9*(1-S.tSec/S.tTotal);
+}
+function togglePause(){ S.running=!S.running; document.getElementById('btn-pause').textContent=S.running?'⏸ PAUSE':'▶ RESUME'; }
+
+// ── SPELL ANIMATION ──
+function runSpell(){
+  const T=S._T||H[S.house];
+  const ov=document.getElementById('spell-overlay'); ov.innerHTML=''; ov.classList.add('show');
+  const vw=window.innerWidth,vh=window.innerHeight;
+  const emojis=['✨','⚡','🌟','💫',T.icon,T.emoji,'🪄','⭐'];
+  for(let i=0;i<14;i++){
+    const el=document.createElement('div'); el.className='snitch';
+    el.textContent=emojis[i%emojis.length];
+    el.style.left=Math.random()*vw+'px'; el.style.top=Math.random()*vh+'px';
+    el.style.setProperty('--dx1',(Math.random()*140-70)+'px'); el.style.setProperty('--dy1',(Math.random()*-130-40)+'px');
+    el.style.setProperty('--dx2',(Math.random()*220-110)+'px'); el.style.setProperty('--dy2',(Math.random()*-220-80)+'px');
+    el.style.setProperty('--dx3',(Math.random()*320-160)+'px'); el.style.setProperty('--dy3',(Math.random()*-320-100)+'px');
+    el.style.animationDelay=(i*0.13)+'s'; el.style.fontSize=(14+Math.random()*18)+'px';
+    ov.appendChild(el);
+  }
+  for(let i=0;i<24;i++){
+    const el=document.createElement('div'); el.className='wand-spark';
+    el.style.left=Math.random()*vw+'px'; el.style.top=Math.random()*vh+'px';
+    const ang=Math.random()*Math.PI*2,dist=50+Math.random()*140;
+    el.style.setProperty('--sx',Math.cos(ang)*dist+'px'); el.style.setProperty('--sy',Math.sin(ang)*dist+'px');
+    el.style.animationDelay=(Math.random()*0.9)+'s'; el.style.background=Math.random()>0.5?T.acc:T.sec;
+    ov.appendChild(el);
+  }
+  const sw=document.createElement('div'); sw.className='spell-word';
+  sw.textContent=HS[Math.floor(Math.random()*HS.length)]; sw.style.left=(vw*0.05)+'px'; sw.style.top=(vh*0.25)+'px'; sw.style.color=T.acc;
+  ov.appendChild(sw);
+  const sh=document.createElement('div'); sh.className='spell-word';
+  sh.textContent=HM[Math.floor(Math.random()*HM.length)]; sh.style.left=(vw*0.44)+'px'; sh.style.top=(vh*0.58)+'px'; sh.style.color=T.sec||T.text; sh.style.animationDelay='0.5s';
+  ov.appendChild(sh);
+  setTimeout(()=>{ ov.classList.remove('show'); ov.innerHTML=''; },2800);
+}
+
+// ── COMPLETE MISSION ──
+function completeMission(){
+  clearInterval(S.tInt);
+  const m=S.sel!==null?MISSIONS[S.sel]:MISSIONS[0];
+  const oldLvl=getLvl(S.xp);
+  S.xp+=m.xp; S.done++;
+  if(!S.doneToday){ S.streak++; S.doneToday=true; S.week[4]=true; S.weekMissions[4]=m.name; }
+  S.qIdx++;
+  const newLvl=getLvl(S.xp); const lvlUp=newLvl.name!==oldLvl.name;
+  document.getElementById('r-name').textContent=m.name;
+  document.getElementById('r-xp').textContent='+'+m.xp;
+  document.getElementById('r-streak').textContent='🔥 '+S.streak;
+  document.getElementById('r-total').textContent=S.xp+' pts';
+  const dd=S.week.filter(Boolean).length;
+  document.getElementById('r-cons').textContent=Math.round((dd/7)*100)+'%';
+  document.getElementById('r-stk2').textContent=S.streak+' day'+(S.streak!==1?'s':'');
+  const lb=document.getElementById('lu-banner');
+  if(lvlUp){ lb.classList.add('show'); document.getElementById('lu-new').textContent='You are now '+newLvl.name; }
+  else lb.classList.remove('show');
+  const rq=QUOTES[Math.floor(Math.random()*QUOTES.length)];
+  document.getElementById('r-quote').textContent=rq.t+' '+rq.r;
+  runSpell();
+  setTimeout(()=>{ document.getElementById('result-overlay').classList.add('show'); showNotif('📜','Mission Complete!',m.name+' — +'+m.xp+' House Points earned!',S._T?S._T.acc:null); },500);
+}
+function closeResult(){
+  document.getElementById('result-overlay').classList.remove('show');
+  S.sel=null; S.tSec=25*60; S.tTotal=25*60;
+  goTo('dash');
+}
+
+// ── TOM RIDDLE CHATBOT ──
+function initChat(){
+  if(S.chatInited) return; S.chatInited=true;
+  addBot("*the blank pages begin filling with dark ink*\n\nGood… you found me. I am Tom Riddle. You may ask me anything about your studies, your challenges, or your progress. I have been waiting in these pages for a very long time.\n\nChoose your words carefully.");
+}
+function pick(arr){ return arr[Math.floor(Math.random()*arr.length)]; }
+function getBotReply(m){
+  const lm=m.toLowerCase();
+  if(lm.includes('study')||lm.includes('tip')||lm.includes('revise')||lm.includes('help')) return pick(TOM_RESPONSES.study);
+  if(lm.includes('motivat')||lm.includes('tired')||lm.includes('give up')||lm.includes('losing')) return pick(TOM_RESPONSES.motivation);
+  if(lm.includes('challenge')||lm.includes('riddle')||lm.includes('dark')) return pick(TOM_RESPONSES.challenge);
+  if(lm.includes('level')||lm.includes('xp')||lm.includes('point')||lm.includes('faster')) return pick(TOM_RESPONSES.level);
+  if(lm.includes('hello')||lm.includes('hi')||lm.includes('hey')||lm.includes('who')) return pick(TOM_RESPONSES.hello);
+  return pick(TOM_RESPONSES.def);
+}
+function addBot(text){
+  const T=S._T||H[S.house];
+  const body=document.getElementById('chat-body');
+  const w=document.createElement('div'); w.className='chat-msg ink-appear';
+  w.innerHTML=`<div class="chat-av" style="background:${T.dark};border:1px solid ${T.border};font-size:13px;color:${T.text};">TR</div>
+    <div class="chat-bubble bot" style="background:rgba(250,246,238,0.85);border:1px solid ${T.chatBorder};color:${T.chatText};border-top-left-radius:4px;">
+      <div class="chat-sender" style="color:${T.chatSender};font-family:'Special Elite',serif;">T. M. RIDDLE</div>${text.replace(/\n/g,'<br>')}</div>`;
+  body.appendChild(w); body.scrollTop=body.scrollHeight;
+}
+function addUser(text){
+  const T=S._T||H[S.house];
+  const body=document.getElementById('chat-body');
+  const w=document.createElement('div'); w.className='chat-msg user';
+  w.innerHTML=`<div class="chat-av" style="background:${T.acc};color:#FAF6EE;font-size:13px;font-family:'Cinzel',serif;">${(S.name||'W').charAt(0)}</div>
+    <div class="chat-bubble usr" style="background:${T.chatUserBg};color:${T.chatUserText};">${text}</div>`;
+  body.appendChild(w); body.scrollTop=body.scrollHeight;
+}
+function showTyping(){
+  const T=S._T||H[S.house];
+  const body=document.getElementById('chat-body');
+  const w=document.createElement('div'); w.className='chat-msg'; w.id='typi';
+  w.innerHTML=`<div class="chat-av" style="background:${T.dark};border:1px solid ${T.border};font-size:13px;color:${T.text};">TR</div>
+    <div class="chat-bubble bot" style="background:rgba(250,246,238,0.85);border:1px solid ${T.chatBorder};"><span class="tydot" style="color:${T.chatSender};">.</span><span class="tydot" style="color:${T.chatSender};">.</span><span class="tydot" style="color:${T.chatSender};">.</span></div>`;
+  body.appendChild(w); body.scrollTop=body.scrollHeight;
+}
+function sendChat(){
+  const inp=document.getElementById('chat-input'); const msg=inp.value.trim(); if(!msg) return;
+  inp.value=''; addUser(msg);
+  document.getElementById('chat-sugs').style.display='none';
+  showTyping();
+  setTimeout(()=>{ const t=document.getElementById('typi'); if(t)t.remove(); addBot(getBotReply(msg)); },1000+Math.random()*800);
+}
+function sendSug(btn){ document.getElementById('chat-input').value=btn.textContent; sendChat(); }
+
+// ── INIT ──
+updateDash(); renderMissions();
+</script>
+</body>
+</html>
